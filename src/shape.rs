@@ -29,6 +29,17 @@ where
     }
 }
 
+impl Add<Point<i32>> for Point<u32> {
+    type Output = Self;
+
+    fn add(self, rhs: Point<i32>) -> Self::Output {
+        Self::new(
+            self.x.wrapping_add_signed(rhs.x),
+            self.y.wrapping_add_signed(rhs.y),
+        )
+    }
+}
+
 impl<T> Sub for Point<T>
 where
     T: Add + Sub<Output = T> + Mul + Div,

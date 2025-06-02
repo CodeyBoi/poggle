@@ -4,7 +4,7 @@ use std::f32::consts::PI;
 use sdl2::pixels::Color;
 
 use crate::{
-    sdl::{Render, draw_circle},
+    sdl::{Render, draw_circle, draw_circle_filled},
     shape::{Point, Shape},
 };
 
@@ -27,6 +27,7 @@ pub struct Peg {
 
 pub enum PegType {
     Standard,
+    Target,
     PointBoost,
     PowerUp(PowerUp),
 }
@@ -75,9 +76,17 @@ impl Render for Peg {
     where
         T: sdl2::render::RenderTarget,
     {
-        canvas.set_draw_color(Color::BLUE);
+        let color = match self.peg_type {
+            PegType::Standard => Color::BLUE,
+            PegType::Target => Color::RED,
+            PegType::PointBoost => Color::MAGENTA,
+            PegType::PowerUp(_) => Color::GREEN,
+        };
+        canvas.set_draw_color(color);
         match &self.shape {
-            Shape::Circle { radius } => draw_circle(canvas, self.pos.x, self.pos.y, *radius)?,
+            Shape::Circle { radius } => {
+                draw_circle_filled(canvas, self.pos.x as u32, self.pos.y as u32, *radius as u32)?
+            }
             Shape::Rectangle {
                 width,
                 height,
@@ -91,12 +100,32 @@ impl Render for Peg {
 
 impl Poggle {
     pub fn new() -> Self {
-        let pegs = vec![Peg {
-            pos: Point::new(100.0, 150.0),
-            shape: Shape::Circle { radius: 4.0 },
-            is_hit: false,
-            peg_type: PegType::Standard,
-        }];
+        let pegs = vec![
+            Peg {
+                pos: Point::new(100.0, 150.0),
+                shape: Shape::Circle { radius: 5.0 },
+                is_hit: false,
+                peg_type: PegType::Standard,
+            },
+            Peg {
+                pos: Point::new(150.0, 150.0),
+                shape: Shape::Circle { radius: 5.0 },
+                is_hit: false,
+                peg_type: PegType::Target,
+            },
+            Peg {
+                pos: Point::new(200.0, 150.0),
+                shape: Shape::Circle { radius: 5.0 },
+                is_hit: false,
+                peg_type: PegType::PowerUp(PowerUp::SuperGuide),
+            },
+            Peg {
+                pos: Point::new(250.0, 150.0),
+                shape: Shape::Circle { radius: 5.0 },
+                is_hit: false,
+                peg_type: PegType::PointBoost,
+            },
+        ];
         Self { ball: None, pegs }
     }
 

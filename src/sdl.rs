@@ -25,6 +25,12 @@ pub trait Render {
         T: RenderTarget;
 }
 
+impl From<Point<u32>> for sdl2::rect::Point {
+    fn from(value: Point<u32>) -> Self {
+        sdl2::rect::Point::new(value.x as i32, value.y as i32)
+    }
+}
+
 impl From<Point<f32>> for sdl2::rect::Point {
     fn from(value: Point<f32>) -> Self {
         sdl2::rect::Point::new(value.x as i32, value.y as i32)
@@ -83,7 +89,7 @@ pub fn run(poggle: &mut Poggle) {
 
         if Instant::now() >= next_render {
             next_render += render_delta;
-            canvas.set_draw_color(Color::RED);
+            canvas.set_draw_color(Color::GRAY);
             canvas.clear();
             poggle.render(&mut canvas).expect("rendering driver failed");
             canvas.present();
@@ -97,21 +103,70 @@ pub fn run(poggle: &mut Poggle) {
     }
 }
 
-pub fn draw_circle<T>(canvas: &mut Canvas<T>, x: f32, y: f32, radius: f32) -> Result<(), String>
+fn get_octant_offsets(radius: u32) -> Vec<Point<i32>> {
+    let mut offsets = Vec::with_capacity((radius as usize + 1) * 2);
+    let (mut dx, mut dy) = (0, radius as i32);
+
+    offsets.push(Point::new(dx, dy));
+    let mut d = 3 - (2 * radius as i32);
+
+    while dx < dy {
+        dx += 1;
+        d += if d < 0 {
+            4 * dx + 2
+        } else {
+            dy -= 1;
+            4 * (dx - dy) + 6
+        };
+        offsets.push(Point::new(dx, dy));
+    }
+    offsets
+}
+
+pub fn draw_circle_filled<T>(
+    canvas: &mut Canvas<T>,
+    x: u32,
+    y: u32,
+    radius: u32,
+) -> Result<(), String>
 where
     T: RenderTarget,
 {
-    const RESOLUTION: usize = 20;
     let center = Point::new(x, y);
-    for i in 0..
-    let points: Vec<_> = (0..RESOLUTION)
-        .flat_map(|i| {
-            let angle = 2.0 * f32::consts::PI * i as f32 / RESOLUTION as f32;
-            let (sin, cos) = angle.sin_cos();
-            let delta = Point::new(cos, sin) * radius;
-            [(center + delta).into()]
-        })
-        .collect();
-    canvas.draw_flines(points.as_slice())?;
+    for offset in get_octant_offsets(radius) {
+        let (dx, dy) = (offset.x, offset.y);
+        for d in [
+            Point::new(dx, dy),
+            Point::new(dy, dx),
+            Point::new(dy, -dx),
+            Point::new(dx, -dy),
+        ] {
+            let other = Point::new(-d.x, d.y);
+            canvas.draw_line(center + other, center + d)?;
+        }
+    }
+    Ok(())
+}
+
+pub fn draw_circle<T>(canvas: &mut Canvas<T>, x: u32, y: u32, radius: u32) -> Result<(), String>
+where
+    T: RenderTarget,
+{
+    let center = Point::new(x, y);
+    for offset in get_octant_offsets(radius) {
+        let (dx, dy) = (offset.x, offset.y);
+        for d in [
+            Point::new(dx, dy),
+            Point::new(dx, -dy),
+            Point::new(-dx, dy),
+            Point::new(-dx, -dy),
+            Point::new(dy, dx),
+            Point::new(dy, -dx),
+            Point::new(-dy, dx),
+            Point::new(-dy, -dx),
+        ] {
+            canvas.draw_point(center + d)?;
+        }
+    }
     Ok(())
 }
