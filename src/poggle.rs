@@ -11,6 +11,12 @@ use crate::{
 pub struct Poggle {
     ball: Option<Ball>,
     pegs: Vec<Peg>,
+    target: Option<Target>,
+}
+
+pub struct Target {
+    pos: Point<f32>,
+    dir: Point<f32>,
 }
 
 pub struct Ball {
@@ -126,7 +132,11 @@ impl Poggle {
                 peg_type: PegType::PointBoost,
             },
         ];
-        Self { ball: None, pegs }
+        Self {
+            ball: None,
+            pegs,
+            target: None,
+        }
     }
 
     pub fn shoot(&mut self, angle: f32) {

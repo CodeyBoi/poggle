@@ -9,6 +9,25 @@ where
     pub y: T,
 }
 
+#[derive(Clone, Copy)]
+pub struct PolarPoint {
+    pub angle: f32,
+    pub magnitude: f32,
+}
+
+impl From<PolarPoint> for Point<f32> {
+    fn from(value: PolarPoint) -> Self {
+        let (sin, cos) = value.angle.sin_cos();
+        Self::new(cos, sin) * value.magnitude
+    }
+}
+
+impl From<Point<f32>> for PolarPoint {
+    fn from(value: Point<f32>) -> Self {
+        Self::new(value.y.atan2(value.x), value.x.hypot(value.y))
+    }
+}
+
 impl<T> Point<T>
 where
     T: Add + Sub + Mul + Div,
@@ -18,9 +37,27 @@ where
     }
 }
 
+impl PolarPoint {
+    pub fn new(angle: f32, magnitude: f32) -> Self {
+        Self { angle, magnitude }
+    }
+}
+
+impl<T> Point<T>
+where
+    T: Add + Sub + Mul + Div + From<u8>,
+{
+    pub fn zero() -> Self {
+        Self {
+            x: 0u8.into(),
+            y: 0u8.into(),
+        }
+    }
+}
+
 impl<T> Add for Point<T>
 where
-    T: Add<Output = T> + Sub + Mul + Div,
+    T: Add<Output = T> + Sub + Mul + Div + From<u32>,
 {
     type Output = Self;
 
@@ -34,8 +71,8 @@ impl Add<Point<i32>> for Point<u32> {
 
     fn add(self, rhs: Point<i32>) -> Self::Output {
         Self::new(
-            self.x.wrapping_add_signed(rhs.x),
-            self.y.wrapping_add_signed(rhs.y),
+            self.x.saturating_add_signed(rhs.x),
+            self.y.saturating_add_signed(rhs.y),
         )
     }
 }

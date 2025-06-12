@@ -65,6 +65,8 @@ pub fn run(poggle: &mut Poggle) {
 
     let mut next_render = Instant::now();
     let render_delta = Duration::from_secs(1) / FRAMES_PER_SECOND as u32;
+    let mut target_start = None;
+    let mut target_end = None;
 
     let mut is_running = true;
     while is_running {
@@ -81,8 +83,17 @@ pub fn run(poggle: &mut Poggle) {
                     y,
                     ..
                 } => {
-                    println!("Clicked at ({}, {})", x, y);
+                    target_start = Some((x, y));
                 }
+                Event::MouseMotion { x, y, .. } => {
+                    target_end = Some((x, y));
+                }
+                Event::MouseButtonUp {
+                    mouse_btn: MouseButton::Left,
+                    x,
+                    y,
+                    ..
+                } => {}
                 _ => {}
             }
         }
@@ -92,6 +103,12 @@ pub fn run(poggle: &mut Poggle) {
             canvas.set_draw_color(Color::GRAY);
             canvas.clear();
             poggle.render(&mut canvas).expect("rendering driver failed");
+            if let (Some(start), Some(end)) = (target_start, target_end) {
+                canvas.set_draw_color(Color::RED);
+                canvas
+                    .draw_line(start, end)
+                    .expect("rendering driver failed");
+            }
             canvas.present();
         }
 
