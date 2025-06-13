@@ -1,4 +1,4 @@
-use std::ops::{Add, Div, Mul, Sub};
+use std::ops::{Add, AddAssign, Div, Mul, Sub};
 
 #[derive(Clone, Copy)]
 pub struct Point<T>
@@ -32,13 +32,13 @@ impl<T> Point<T>
 where
     T: Add + Sub + Mul + Div,
 {
-    pub fn new(x: T, y: T) -> Self {
+    pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
 }
 
 impl PolarPoint {
-    pub fn new(angle: f32, magnitude: f32) -> Self {
+    pub const fn new(angle: f32, magnitude: f32) -> Self {
         Self { angle, magnitude }
     }
 }
@@ -57,7 +57,7 @@ where
 
 impl<T> Add for Point<T>
 where
-    T: Add<Output = T> + Sub + Mul + Div + From<u32>,
+    T: Add<Output = T> + Sub + Mul + Div,
 {
     type Output = Self;
 
@@ -66,14 +66,13 @@ where
     }
 }
 
-impl Add<Point<i32>> for Point<u32> {
-    type Output = Self;
-
-    fn add(self, rhs: Point<i32>) -> Self::Output {
-        Self::new(
-            self.x.saturating_add_signed(rhs.x),
-            self.y.saturating_add_signed(rhs.y),
-        )
+impl<T> AddAssign for Point<T>
+where
+    T: Add<Output = T> + Sub + Mul + Div + AddAssign,
+{
+    fn add_assign(&mut self, rhs: Self) {
+        self.x += rhs.x;
+        self.y += rhs.y;
     }
 }
 
@@ -107,6 +106,15 @@ where
 
     fn div(self, rhs: T) -> Self::Output {
         Self::new(self.x / rhs, self.y / rhs)
+    }
+}
+
+impl Point<u32> {
+    pub fn add_signed(self, rhs: Point<i32>) -> Self {
+        Self {
+            x: self.x.saturating_add_signed(rhs.x),
+            y: self.y.saturating_add_signed(rhs.y),
+        }
     }
 }
 

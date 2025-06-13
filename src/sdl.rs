@@ -62,6 +62,7 @@ pub fn run(poggle: &mut Poggle) {
 
     let mut next_update = Instant::now();
     let update_delta = Duration::from_secs(1) / UPDATES_PER_SECOND as u32;
+    let mut last_update = Instant::now() - update_delta;
 
     let mut next_render = Instant::now();
     let render_delta = Duration::from_secs(1) / FRAMES_PER_SECOND as u32;
@@ -83,22 +84,31 @@ pub fn run(poggle: &mut Poggle) {
                     y,
                     ..
                 } => {
-                    target_start = Some((x, y));
+                    target_start = Some(Point::new(x as f32, y as f32));
                 }
                 Event::MouseMotion { x, y, .. } => {
-                    target_end = Some((x, y));
+                    target_end = Some(Point::new(x as f32, y as f32));
                 }
                 Event::MouseButtonUp {
                     mouse_btn: MouseButton::Left,
                     x,
                     y,
                     ..
-                } => {}
+                } => {
+                    if let Some(origin) = target_start {
+                        let end = Point::new(x as f32, y as f32);
+                        let velocity = origin - end;
+                        poggle.shoot(origin, velocity);
+                        (target_start, target_end) = (None, None);
+                    }
+                }
                 _ => {}
             }
         }
 
-        if Instant::now() >= next_render {
+        let now = Instant::now();
+
+        if now >= next_render {
             next_render += render_delta;
             canvas.set_draw_color(Color::GRAY);
             canvas.clear();
@@ -112,8 +122,10 @@ pub fn run(poggle: &mut Poggle) {
             canvas.present();
         }
 
-        if Instant::now() >= next_update {
+        if now >= next_update {
+            poggle.update(now - last_update);
             next_update += update_delta;
+            last_update = now;
         }
 
         thread::sleep(Duration::from_micros(10));
@@ -159,7 +171,7 @@ where
             Point::new(dx, -dy),
         ] {
             let other = Point::new(-d.x, d.y);
-            canvas.draw_line(center + other, center + d)?;
+            canvas.draw_line(center.add_signed(other), center.add_signed(d))?;
         }
     }
     Ok(())
@@ -182,7 +194,7 @@ where
             Point::new(-dy, dx),
             Point::new(-dy, -dx),
         ] {
-            canvas.draw_point(center + d)?;
+            canvas.draw_point(center.add_signed(d))?;
         }
     }
     Ok(())

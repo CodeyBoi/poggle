@@ -1,12 +1,14 @@
 use core::f32;
-use std::f32::consts::PI;
+use std::{f32::consts::PI, time::Duration};
 
 use sdl2::pixels::Color;
 
 use crate::{
     sdl::{Render, draw_circle, draw_circle_filled},
-    shape::{Point, Shape},
+    shape::{Point, PolarPoint, Shape},
 };
+
+const GRAVITY: Point<f32> = Point::new(0.0, 400.0);
 
 pub struct Poggle {
     ball: Option<Ball>,
@@ -73,6 +75,12 @@ impl Render for Ball {
     where
         T: sdl2::render::RenderTarget,
     {
+        canvas.set_draw_color(Color::RED);
+        draw_circle_filled(canvas, self.pos.x as u32, self.pos.y as u32, 7)?;
+        canvas.set_draw_color(Color::BLACK);
+        draw_circle(canvas, self.pos.x as u32, self.pos.y as u32, 7)?;
+        canvas.set_draw_color(Color::MAGENTA);
+        canvas.draw_line(self.pos, self.pos + self.velocity)?;
         Ok(())
     }
 }
@@ -91,7 +99,9 @@ impl Render for Peg {
         canvas.set_draw_color(color);
         match &self.shape {
             Shape::Circle { radius } => {
-                draw_circle_filled(canvas, self.pos.x as u32, self.pos.y as u32, *radius as u32)?
+                draw_circle_filled(canvas, self.pos.x as u32, self.pos.y as u32, *radius as u32)?;
+                canvas.set_draw_color(Color::BLACK);
+                draw_circle(canvas, self.pos.x as u32, self.pos.y as u32, *radius as u32)?;
             }
             Shape::Rectangle {
                 width,
@@ -139,7 +149,18 @@ impl Poggle {
         }
     }
 
-    pub fn shoot(&mut self, angle: f32) {
-        let angle = angle.clamp(-PI, PI);
+    pub fn shoot(&mut self, origin: Point<f32>, velocity: Point<f32>) {
+        self.ball = Some(Ball {
+            pos: origin,
+            velocity,
+        });
+    }
+
+    pub fn update(&mut self, delta: Duration) {
+        if let Some(ball) = &mut self.ball {
+            let d = delta.as_secs_f32();
+            ball.velocity += GRAVITY * d;
+            ball.pos += ball.velocity * d;
+        }
     }
 }
