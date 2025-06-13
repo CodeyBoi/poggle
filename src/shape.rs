@@ -37,6 +37,20 @@ where
     }
 }
 
+impl<T> Point<T>
+where
+    T: Add + Sub<Output = T> + Mul + Div + Into<f64> + Copy,
+{
+    pub fn length_squared(&self) -> f64 {
+        let (x, y) = (self.x.into(), self.y.into());
+        x * x + y * y
+    }
+
+    pub fn length(&self) -> f64 {
+        self.length_squared().sqrt()
+    }
+}
+
 impl PolarPoint {
     pub const fn new(angle: f32, magnitude: f32) -> Self {
         Self { angle, magnitude }
@@ -131,4 +145,29 @@ pub enum Shape {
         points: Vec<Point<f32>>,
         rotation: f32,
     },
+}
+
+pub struct Body {
+    pos: Point<f32>,
+    shape: Shape,
+}
+
+pub trait Region {
+    fn contains(&self, p: Point<f32>) -> bool;
+}
+
+impl Region for Body {
+    fn contains(&self, p: Point<f32>) -> bool {
+        match &self.shape {
+            Shape::Circle { radius } => {
+                (self.pos - p).length_squared() <= *radius as f64 * *radius as f64
+            }
+            Shape::Rectangle {
+                width,
+                height,
+                rotation,
+            } => todo!(),
+            Shape::Polygon { points, rotation } => todo!(),
+        }
+    }
 }
