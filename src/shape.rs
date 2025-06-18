@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    ops::{Add, AddAssign, Div, Mul, Sub},
+    ops::{Add, AddAssign, Div, Mul, Neg, Sub},
 };
 
 pub trait Number:
@@ -42,9 +42,10 @@ impl<T: Number> Point<T> {
     pub const fn new(x: T, y: T) -> Self {
         Self { x, y }
     }
-}
+    pub fn to(self, rhs: Self) -> Self {
+        rhs - self
+    }
 
-impl<T: Number> Point<T> {
     pub fn dot(self, rhs: Self) -> T {
         self.x * rhs.x + self.y * rhs.y
     }
@@ -58,13 +59,17 @@ impl<T: Number> Point<T> {
     }
 }
 
-impl<T: Number + Into<f64>> Point<T> {
-    pub fn length(self) -> f64 {
+impl<T: Number + Into<f32>> Point<T> {
+    pub fn length(self) -> f32 {
         self.length_squared().into().sqrt()
     }
 
-    pub fn distance_to(self, rhs: Self) -> f64 {
+    pub fn distance_to(self, rhs: Self) -> f32 {
         self.distance_to_squared(rhs).into().sqrt()
+    }
+
+    pub fn normalized(self) -> Point<f32> {
+        Point::new(self.x.into(), self.y.into()) / self.length()
     }
 }
 
@@ -119,6 +124,14 @@ impl<T: Number> Div<T> for Point<T> {
 
     fn div(self, rhs: T) -> Self::Output {
         Self::new(self.x / rhs, self.y / rhs)
+    }
+}
+
+impl<T: Number + Neg<Output = T>> Neg for Point<T> {
+    type Output = Self;
+
+    fn neg(self) -> Self::Output {
+        Point::new(-self.x, -self.y)
     }
 }
 

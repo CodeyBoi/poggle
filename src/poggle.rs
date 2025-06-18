@@ -26,7 +26,7 @@ pub struct Ball {
 }
 
 impl Ball {
-    const RADIUS: f32 = 70.0;
+    const RADIUS: f32 = 20.0;
 }
 
 pub struct Peg {
@@ -95,7 +95,7 @@ impl Ball {
                 };
 
                 // Check the direction is correct
-                if self.velocity.x.signum() == (x_new - self.pos.x).signum() {
+                if self.velocity.x.signum() != (x_new - self.pos.x).signum() {
                     return None;
                 }
 
@@ -171,6 +171,17 @@ impl Poggle {
             let d = delta.as_secs_f32();
             ball.velocity += GRAVITY * d;
             ball.pos += ball.velocity * d;
+
+            for peg in &self.pegs {
+                if let Some(collision) = ball.will_collide(&peg.body, delta) {
+                    let distance_to_travel = ball.velocity.length() * delta.as_secs_f32();
+                    let reflect = peg.body.pos.to(collision).normalized();
+                    ball.velocity += -reflect * reflect.dot(ball.velocity) * 2.0;
+                    ball.pos = collision
+                        + ball.velocity.normalized()
+                            * (distance_to_travel - ball.pos.distance_to(collision));
+                }
+            }
         }
     }
 }
@@ -188,24 +199,24 @@ impl Render for Poggle {
             ball.render(canvas)?;
         }
 
-        canvas.set_draw_color(Color::GREEN);
-        if let Some(ball) = &self.ball {
-            for peg in &self.pegs {
-                if let Some(collision) = ball.will_collide(
-                    &peg.body,
-                    Duration::from_micros(1_000_000 / sdl::UPDATES_PER_SECOND as u64),
-                ) {
-                    canvas.draw_line(
-                        Point::new(0.0f32, collision.y),
-                        Point::new(10000.0f32, collision.y),
-                    )?;
-                    canvas.draw_line(
-                        Point::new(collision.x, 0.0f32),
-                        Point::new(collision.x, 10000.0f32),
-                    )?;
-                }
-            }
-        }
+        // canvas.set_draw_color(Color::GREEN);
+        // if let Some(ball) = &self.ball {
+        //     for peg in &self.pegs {
+        //         if let Some(collision) = ball.will_collide(
+        //             &peg.body,
+        //             Duration::from_micros(1_000_000 / sdl::UPDATES_PER_SECOND as u64),
+        //         ) {
+        //             canvas.draw_line(
+        //                 Point::new(0.0f32, collision.y),
+        //                 Point::new(10000.0f32, collision.y),
+        //             )?;
+        //             canvas.draw_line(
+        //                 Point::new(collision.x, 0.0f32),
+        //                 Point::new(collision.x, 10000.0f32),
+        //             )?;
+        //         }
+        //     }
+        // }
 
         Ok(())
     }
