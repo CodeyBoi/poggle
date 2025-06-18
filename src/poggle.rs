@@ -26,7 +26,7 @@ pub struct Ball {
 }
 
 impl Ball {
-    const RADIUS: f32 = 20.0;
+    const RADIUS: f32 = 6.0;
 }
 
 pub struct Peg {
@@ -118,45 +118,39 @@ impl Ball {
 
 impl Poggle {
     pub fn new() -> Self {
-        let pegs = vec![
-            Peg {
-                body: Body {
-                    pos: Point::new(500.0, 400.0),
-                    shape: Shape::Circle { radius: 250.0 },
-                },
-                is_hit: false,
-                peg_type: PegType::Standard,
-            },
-            Peg {
-                body: Body {
-                    pos: Point::new(150.0, 150.0),
-                    shape: Shape::Circle { radius: 5.0 },
-                },
-                is_hit: false,
-                peg_type: PegType::Target,
-            },
-            Peg {
-                body: Body {
-                    pos: Point::new(200.0, 150.0),
-                    shape: Shape::Circle { radius: 5.0 },
-                },
-                is_hit: false,
-                peg_type: PegType::PowerUp(PowerUp::SuperGuide),
-            },
-            Peg {
-                body: Body {
-                    pos: Point::new(250.0, 150.0),
-                    shape: Shape::Circle { radius: 5.0 },
-                },
-                is_hit: false,
-                peg_type: PegType::PointBoost,
-            },
-        ];
+        let pegs = Self::generate_grid(
+            Point::new(100.0, 400.0),
+            Point::new(sdl::WINDOW_WIDTH as f32 - 100.0, 700.0),
+            50.0,
+        );
+
         Self {
             ball: None,
             pegs,
             target: None,
         }
+    }
+
+    fn generate_grid(origin: Point<f32>, end: Point<f32>, spacing: f32) -> Vec<Peg> {
+        let mut out = Vec::new();
+        let mut point = origin;
+        while point.y <= end.y {
+            out.push(Peg {
+                body: Body {
+                    pos: point,
+                    shape: Shape::Circle { radius: 6.0 },
+                },
+                is_hit: false,
+                peg_type: PegType::Standard,
+            });
+
+            point.x += spacing;
+            if point.x > end.x {
+                point.x = origin.x;
+                point.y += spacing;
+            }
+        }
+        out
     }
 
     pub fn shoot(&mut self, origin: Point<f32>, velocity: Point<f32>) {

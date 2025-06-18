@@ -13,8 +13,8 @@ use sdl2::{
 
 use crate::{poggle::Poggle, shape::Point};
 
-const WINDOW_WIDTH: u32 = 1280;
-const WINDOW_HEIGHT: u32 = 800;
+pub const WINDOW_WIDTH: u32 = 1280;
+pub const WINDOW_HEIGHT: u32 = 800;
 
 pub const UPDATES_PER_SECOND: u16 = 60;
 const FRAMES_PER_SECOND: u16 = 60;
