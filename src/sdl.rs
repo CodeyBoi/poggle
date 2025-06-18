@@ -16,7 +16,7 @@ use crate::{poggle::Poggle, shape::Point};
 const WINDOW_WIDTH: u32 = 1280;
 const WINDOW_HEIGHT: u32 = 800;
 
-const UPDATES_PER_SECOND: u16 = 120;
+pub const UPDATES_PER_SECOND: u16 = 60;
 const FRAMES_PER_SECOND: u16 = 60;
 
 pub trait Render {
@@ -70,6 +70,7 @@ pub fn run(poggle: &mut Poggle) {
     let mut target_end = None;
 
     let mut is_running = true;
+    let mut mouse_down = false;
     while is_running {
         for event in events.poll_iter() {
             match event {
@@ -84,10 +85,15 @@ pub fn run(poggle: &mut Poggle) {
                     y,
                     ..
                 } => {
+                    mouse_down = true;
                     target_start = Some(Point::new(x as f32, y as f32));
                 }
                 Event::MouseMotion { x, y, .. } => {
-                    target_end = Some(Point::new(x as f32, y as f32));
+                    let p = Point::new(x as f32, y as f32);
+                    if mouse_down {
+                        poggle.shoot(p, Point::zero());
+                    }
+                    target_end = Some(p);
                 }
                 Event::MouseButtonUp {
                     mouse_btn: MouseButton::Left,
@@ -95,6 +101,7 @@ pub fn run(poggle: &mut Poggle) {
                     y,
                     ..
                 } => {
+                    mouse_down = false;
                     if let Some(origin) = target_start {
                         let end = Point::new(x as f32, y as f32);
                         let velocity = origin - end;
@@ -123,9 +130,9 @@ pub fn run(poggle: &mut Poggle) {
         }
 
         if now >= next_update {
-            poggle.update(now - last_update);
+            poggle.update(update_delta);
             next_update += update_delta;
-            last_update = now;
+            last_update += update_delta;
         }
 
         thread::sleep(Duration::from_micros(10));

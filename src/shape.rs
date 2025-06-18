@@ -1,4 +1,7 @@
-use std::ops::{Add, AddAssign, Div, Mul, Sub};
+use std::{
+    fmt::Display,
+    ops::{Add, AddAssign, Div, Mul, Sub},
+};
 
 pub trait Number:
     Copy + Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Div<Output = Self>
@@ -116,6 +119,16 @@ impl<T: Number> Div<T> for Point<T> {
 
     fn div(self, rhs: T) -> Self::Output {
         Self::new(self.x / rhs, self.y / rhs)
+    }
+}
+
+impl<T: Number + Display> Display for Point<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        write!(f, "(")?;
+        self.x.fmt(f)?;
+        write!(f, ", ")?;
+        self.y.fmt(f)?;
+        write!(f, ")")
     }
 }
 

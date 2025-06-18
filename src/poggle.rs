@@ -1,10 +1,9 @@
-use core::f32;
-use std::{f32::consts::PI, time::Duration};
+use std::time::Duration;
 
 use sdl2::pixels::Color;
 
 use crate::{
-    sdl::{Render, draw_circle, draw_circle_filled},
+    sdl::{self, Render, draw_circle, draw_circle_filled},
     shape::{Body, Point, PolarPoint, Region, Shape},
 };
 
@@ -27,12 +26,11 @@ pub struct Ball {
 }
 
 impl Ball {
-    const RADIUS: f32 = 7.0;
+    const RADIUS: f32 = 70.0;
 }
 
 pub struct Peg {
-    pos: Point<f32>,
-    shape: Shape,
+    body: Body,
     is_hit: bool,
     peg_type: PegType,
 }
@@ -58,42 +56,55 @@ pub enum PowerUp {
 }
 
 impl Ball {
-    fn will_collide(&self, other: Body, time: Duration) -> Option<Point<f32>> {
-        match other.shape {
+    fn will_collide(&self, other: &Body, time: Duration) -> Option<Point<f32>> {
+        match &other.shape {
             Shape::Circle { radius } => {
                 // With line -> y = mx + k and circle -> (x - p)^2 + (y - q)^2 = r^2 we get
                 // Ax^2 + Bx + C = 0 where A = m^2 + 1, B = 2(mk - mq - p), and
                 // C = q^2 - r^2 + p^2 - 2kq + k^2. Solutions are then given by
                 // x' = (-B ± sqrt(B^2 - 4AC)) / 2A.
-                let m = self.velocity.y / self.velocity.x;
+                let m = self.velocity.y / self.velocity.x; // Will be INF if velocity.x is zero
                 let k = self.pos.y - self.pos.x * m;
 
-                let p = other.pos.x;
-                let q = other.pos.y;
-                let r = radius + Ball::RADIUS;
+                let x_new = {
+                    let p = other.pos.x;
+                    let q = other.pos.y;
+                    let r = radius + Ball::RADIUS;
 
-                let a = m.powi(2) + 1.0;
-                let b = 2.0 * (m * k - m * q - p);
-                let c = q.powi(2) - r.powi(2) + p.powi(2) - 2.0 * k * q + k.powi(2);
+                    let a = m.powi(2) + 1.0;
+                    let b = 2.0 * (m * k - m * q - p);
+                    let c = q.powi(2) - r.powi(2) + p.powi(2) - 2.0 * k * q + k.powi(2);
 
-                let midpoint = b / (2.0 * a);
-                let delta = (b.powi(2) - 4.0 * a * c) / 2.0 * a;
-                let (x1, x2) = (midpoint + delta, midpoint - delta);
+                    let midpoint = -b / (2.0 * a);
 
-                let x_new = if (x1 - self.pos.x).abs() < (x2 - self.pos.x).abs() {
-                    x1
-                } else {
-                    x2
+                    // If B^2 - 4AC < 0 then no real solution exists
+                    let v = b.powi(2) - 4.0 * a * c;
+                    if v < 0.0 {
+                        return None;
+                    }
+
+                    let delta = v.sqrt() / (2.0 * a);
+
+                    // Find the closest of the two points
+                    let (x1, x2) = (midpoint + delta, midpoint - delta);
+                    if (x1 - self.pos.x).abs() < (x2 - self.pos.x).abs() {
+                        x1
+                    } else {
+                        x2
+                    }
                 };
 
-                if self.velocity.x.signum() != (x_new - self.pos.x).signum() {
+                // Check the direction is correct
+                if self.velocity.x.signum() == (x_new - self.pos.x).signum() {
                     return None;
                 }
 
-                let collision = Point::new(x_new, m * x_new + c);
+                // As y = mx + k
+                let collision = Point::new(x_new, m * x_new + k);
 
+                // Check if collision will happen during the allotted time
                 if self.pos.distance_to_squared(collision)
-                    > (self.velocity * time.as_secs_f32()).length_squared()
+                    > (self.velocity * time.as_secs_f32() * 1.5).length_squared()
                 {
                     return None;
                 }
@@ -109,26 +120,34 @@ impl Poggle {
     pub fn new() -> Self {
         let pegs = vec![
             Peg {
-                pos: Point::new(100.0, 150.0),
-                shape: Shape::Circle { radius: 5.0 },
+                body: Body {
+                    pos: Point::new(500.0, 400.0),
+                    shape: Shape::Circle { radius: 250.0 },
+                },
                 is_hit: false,
                 peg_type: PegType::Standard,
             },
             Peg {
-                pos: Point::new(150.0, 150.0),
-                shape: Shape::Circle { radius: 5.0 },
+                body: Body {
+                    pos: Point::new(150.0, 150.0),
+                    shape: Shape::Circle { radius: 5.0 },
+                },
                 is_hit: false,
                 peg_type: PegType::Target,
             },
             Peg {
-                pos: Point::new(200.0, 150.0),
-                shape: Shape::Circle { radius: 5.0 },
+                body: Body {
+                    pos: Point::new(200.0, 150.0),
+                    shape: Shape::Circle { radius: 5.0 },
+                },
                 is_hit: false,
                 peg_type: PegType::PowerUp(PowerUp::SuperGuide),
             },
             Peg {
-                pos: Point::new(250.0, 150.0),
-                shape: Shape::Circle { radius: 5.0 },
+                body: Body {
+                    pos: Point::new(250.0, 150.0),
+                    shape: Shape::Circle { radius: 5.0 },
+                },
                 is_hit: false,
                 peg_type: PegType::PointBoost,
             },
@@ -153,25 +172,6 @@ impl Poggle {
             ball.velocity += GRAVITY * d;
             ball.pos += ball.velocity * d;
         }
-
-        if let Some(ball) = &self.ball {
-            for peg in &self.pegs {
-                match &peg.shape {
-                    Shape::Circle { radius } => {
-                        let body = Body {
-                            pos: peg.pos,
-                            shape: Shape::Circle {
-                                radius: radius + Ball::RADIUS,
-                            },
-                        };
-                        if body.contains(ball.pos) {
-                            println!("COLLISION AT {:?}", ball.pos);
-                        }
-                    }
-                    Shape::Polygon { points, rotation } => todo!(),
-                }
-            }
-        }
     }
 }
 
@@ -180,12 +180,31 @@ impl Render for Poggle {
     where
         T: sdl2::render::RenderTarget,
     {
+        for peg in &self.pegs {
+            peg.render(canvas)?;
+        }
+
         if let Some(ball) = &self.ball {
             ball.render(canvas)?;
         }
 
-        for peg in &self.pegs {
-            peg.render(canvas)?;
+        canvas.set_draw_color(Color::GREEN);
+        if let Some(ball) = &self.ball {
+            for peg in &self.pegs {
+                if let Some(collision) = ball.will_collide(
+                    &peg.body,
+                    Duration::from_micros(1_000_000 / sdl::UPDATES_PER_SECOND as u64),
+                ) {
+                    canvas.draw_line(
+                        Point::new(0.0f32, collision.y),
+                        Point::new(10000.0f32, collision.y),
+                    )?;
+                    canvas.draw_line(
+                        Point::new(collision.x, 0.0f32),
+                        Point::new(collision.x, 10000.0f32),
+                    )?;
+                }
+            }
         }
 
         Ok(())
@@ -213,6 +232,14 @@ impl Render for Ball {
         )?;
         canvas.set_draw_color(Color::MAGENTA);
         canvas.draw_line(self.pos, self.pos + self.velocity)?;
+        canvas.set_draw_color(Color::GREEN);
+        canvas.draw_line(
+            self.pos,
+            self.pos
+                + self.velocity
+                    * Duration::from_micros(1_000_000 / sdl::UPDATES_PER_SECOND as u64)
+                        .as_secs_f32(),
+        )?;
         Ok(())
     }
 }
@@ -229,11 +256,21 @@ impl Render for Peg {
             PegType::PowerUp(_) => Color::GREEN,
         };
         canvas.set_draw_color(color);
-        match &self.shape {
+        match &self.body.shape {
             Shape::Circle { radius } => {
-                draw_circle_filled(canvas, self.pos.x as u32, self.pos.y as u32, *radius as u32)?;
+                draw_circle_filled(
+                    canvas,
+                    self.body.pos.x as u32,
+                    self.body.pos.y as u32,
+                    *radius as u32,
+                )?;
                 canvas.set_draw_color(Color::BLACK);
-                draw_circle(canvas, self.pos.x as u32, self.pos.y as u32, *radius as u32)?;
+                draw_circle(
+                    canvas,
+                    self.body.pos.x as u32,
+                    self.body.pos.y as u32,
+                    *radius as u32,
+                )?;
             }
             Shape::Polygon { points, rotation } => todo!(),
         }
