@@ -87,26 +87,30 @@ pub fn run(poggle: &mut Poggle) {
                 } => {
                     mouse_down = true;
                     target_start = Some(Point::new(x as f32, y as f32));
+                    target_end = Some(Point::new(x as f32, y as f32));
                 }
                 Event::MouseMotion { x, y, .. } => {
                     let p = Point::new(x as f32, y as f32);
                     if mouse_down {
-                        poggle.shoot(p, Point::zero());
+                        target_end = Some(p);
                     }
-                    target_end = Some(p);
                 }
                 Event::MouseButtonUp {
                     mouse_btn: MouseButton::Left,
-                    x,
-                    y,
                     ..
                 } => {
                     mouse_down = false;
-                    if let Some(origin) = target_start {
-                        let end = Point::new(x as f32, y as f32);
-                        let velocity = origin - end;
-                        poggle.shoot(origin, velocity);
-                        (target_start, target_end) = (None, None);
+                    (target_start, target_end) = (None, None);
+                }
+                Event::KeyDown {
+                    keycode: Some(Keycode::SPACE),
+                    ..
+                } => {
+                    if let (Some(start), Some(end)) = (target_start, target_end) {
+                        if mouse_down {
+                            let velocity = start.to(end);
+                            poggle.shoot(start, velocity);
+                        }
                     }
                 }
                 _ => {}

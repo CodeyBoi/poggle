@@ -1,6 +1,6 @@
 use std::{
     fmt::Display,
-    ops::{Add, AddAssign, Div, Mul, Neg, Sub},
+    ops::{Add, AddAssign, Div, Mul, MulAssign, Neg, Sub},
 };
 
 pub trait Number:
@@ -119,6 +119,13 @@ impl<T: Number> Mul<T> for Point<T> {
     }
 }
 
+impl<T: Number + MulAssign> MulAssign<T> for Point<T> {
+    fn mul_assign(&mut self, rhs: T) {
+        self.x *= rhs;
+        self.y *= rhs;
+    }
+}
+
 impl<T: Number> Div<T> for Point<T> {
     type Output = Self;
 
@@ -135,6 +142,14 @@ impl<T: Number + Neg<Output = T>> Neg for Point<T> {
     }
 }
 
+impl<T: Number + Eq> Eq for Point<T> {}
+
+impl<T: Number + PartialEq> PartialEq for Point<T> {
+    fn eq(&self, other: &Self) -> bool {
+        self.x == other.x && self.y == other.y
+    }
+}
+
 impl<T: Number + Display> Display for Point<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
         write!(f, "(")?;
@@ -148,8 +163,8 @@ impl<T: Number + Display> Display for Point<T> {
 impl Point<u32> {
     pub fn add_signed(self, rhs: Point<i32>) -> Self {
         Self {
-            x: self.x.saturating_add_signed(rhs.x),
-            y: self.y.saturating_add_signed(rhs.y),
+            x: self.x.wrapping_add_signed(rhs.x),
+            y: self.y.wrapping_add_signed(rhs.y),
         }
     }
 }
@@ -179,5 +194,63 @@ impl Region for Body {
             Shape::Circle { radius } => (self.pos - p).length_squared() <= *radius * *radius,
             Shape::Polygon { points, rotation } => todo!(),
         }
+    }
+}
+
+pub fn solve_quadratic(a: f32, b: f32, c: f32) -> Option<(f32, f32)> {
+    let midpoint = -b / (2.0 * a);
+
+    // If B^2 - 4AC < 0 then no real solution exists
+    let v = b.powi(2) - 4.0 * a * c;
+    if v < 0.0 {
+        return None;
+    }
+
+    let delta = v.sqrt() / (2.0 * a);
+
+    Some((midpoint + delta, midpoint - delta))
+}
+
+#[cfg(test)]
+mod tests {
+    use crate::shape::Point;
+
+    #[test]
+    fn test_add() {
+        let a = Point::new(1, 2);
+        let b = Point::new(3, 4);
+        let c = Point::new(5, 6);
+
+        assert_eq!(a + b, Point::new(4, 6));
+        assert_eq!(b + a, Point::new(4, 6));
+        assert_eq!(a + c, Point::new(6, 8));
+        assert_eq!(b + c, Point::new(8, 10));
+    }
+
+    #[test]
+    fn test_dot() {
+        let a = Point::new(1, 2);
+        let b = Point::new(3, 4);
+        let c = Point::new(5, 6);
+
+        assert_eq!(a.dot(b), 11);
+        assert_eq!(b.dot(a), 11);
+        assert_eq!(a.dot(c), 17);
+        assert_eq!(b.dot(c), 39);
+    }
+
+    #[test]
+    fn test_length() {
+        let a = Point::new(1.0, 2.0);
+        let b = Point::new(3.0, 4.0);
+        let c = Point::new(5.0, 6.0);
+
+        assert!((a.length_squared() - 5.0f32).abs() < f32::EPSILON);
+        assert!((b.length_squared() - 25.0f32).abs() < f32::EPSILON);
+        assert!((c.length_squared() - 61.0f32).abs() < f32::EPSILON);
+
+        assert!((a.length() - 5.0f32.sqrt()).abs() < f32::EPSILON);
+        assert!((b.length() - 5.0f32).abs() < f32::EPSILON);
+        assert!((c.length() - 61.0f32.sqrt()).abs() < f32::EPSILON);
     }
 }
