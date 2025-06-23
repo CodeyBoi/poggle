@@ -105,6 +105,10 @@ pub fn run(poggle: &mut Poggle) {
                 Event::KeyDown {
                     keycode: Some(Keycode::SPACE),
                     ..
+                }
+                | Event::MouseButtonDown {
+                    mouse_btn: MouseButton::Right,
+                    ..
                 } => {
                     if let (Some(start), Some(end)) = (target_start, target_end) {
                         if mouse_down {

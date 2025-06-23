@@ -95,8 +95,9 @@ impl Ball {
                         y2
                     };
 
-                    if self.velocity.y.signum() != (y_new - self.pos.y).signum() {
-                        println!("wrong signum");
+                    if movement.length_squared() > 4.0
+                        && self.velocity.y.signum() != (y_new - self.pos.y).signum()
+                    {
                         return None;
                     }
 
@@ -118,7 +119,9 @@ impl Ball {
                 };
 
                 // Check the direction is correct
-                if movement.x.signum() != (x_new - self.pos.x).signum() {
+                if movement.length_squared() > 4.0
+                    && movement.x.signum() != (x_new - self.pos.x).signum()
+                {
                     return None;
                 }
 
@@ -154,6 +157,14 @@ impl Poggle {
         ))
         .collect();
 
+        let center = sdl::WINDOW_WIDTH as f32 / 2.0;
+        let balls = (-100..100)
+            .map(|i| Ball {
+                pos: Point::new(center + i as f32 / 200.0 - 15.0, 300.0),
+                velocity: Point::zero(),
+            })
+            .collect();
+
         // let pegs = vec![Peg {
         //     body: Body {
         //         pos: Point::new(
@@ -167,7 +178,7 @@ impl Poggle {
         // }];
 
         Self {
-            balls: Vec::new(),
+            balls,
             pegs,
             target: None,
         }
