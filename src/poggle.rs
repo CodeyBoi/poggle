@@ -12,7 +12,6 @@ const GRAVITY: Point<f32> = Point::new(0.0, 550.0);
 pub struct Poggle {
     balls: Vec<Ball>,
     pegs: Vec<Peg>,
-    target: Option<Target>,
 }
 
 pub struct Target {
@@ -23,6 +22,7 @@ pub struct Target {
 pub struct Ball {
     pos: Point<f32>,
     velocity: Point<f32>,
+    start: Point<f32>,
 }
 
 impl Ball {
@@ -57,6 +57,14 @@ pub enum PowerUp {
 }
 
 impl Ball {
+    pub fn new(pos: Point<f32>, velocity: Point<f32>) -> Self {
+        Self {
+            pos,
+            velocity,
+            start: pos,
+        }
+    }
+
     fn will_collide(&self, other: &Body, time: Duration) -> Option<Point<f32>> {
         match &other.shape {
             Shape::Circle { radius } => {
@@ -82,11 +90,11 @@ impl Ball {
 
                 if movement.x.abs() < f32::EPSILON {
                     // In this case we have x = t which gives us
-                    // y^2 - 2qy + (p^2 + q^2 - r^2 - 2tp + t^2)
-                    let t = self.pos.x;
+                    // y^2 - 2qy + (p^2 + q^2 - r^2 - 2dp + d^2)
+                    let d = self.pos.x;
                     let a = 1.0;
                     let b = -2.0 * q;
-                    let c = p.powi(2) - r.powi(2) + q.powi(2) - 2.0 * t * p + t.powi(2);
+                    let c = p.powi(2) - r.powi(2) + q.powi(2) - 2.0 * d * p + d.powi(2);
 
                     let (y1, y2) = solve_quadratic(a, b, c)?;
                     let y_new = if (y1 - self.pos.y).abs() < (y2 - self.pos.y).abs() {
@@ -95,7 +103,7 @@ impl Ball {
                         y2
                     };
 
-                    if movement.length_squared() > 4.0
+                    if movement.is_longer_than(1.0)
                         && self.velocity.y.signum() != (y_new - self.pos.y).signum()
                     {
                         return None;
@@ -119,7 +127,7 @@ impl Ball {
                 };
 
                 // Check the direction is correct
-                if movement.length_squared() > 4.0
+                if movement.is_longer_than(1.0)
                     && movement.x.signum() != (x_new - self.pos.x).signum()
                 {
                     return None;
@@ -129,7 +137,7 @@ impl Ball {
                 let collision = Point::new(x_new, m * x_new + k);
 
                 // Check if collision will happen during the allotted time
-                if self.pos.distance_to_squared(collision) > (movement * 1.2).length_squared() {
+                if self.pos.distance_to_squared(collision) > movement.length_squared() {
                     return None;
                 }
 
@@ -137,6 +145,18 @@ impl Ball {
             }
             Shape::Polygon { points, rotation } => todo!(),
         }
+    }
+
+    fn kinetic_energy(&self) -> f32 {
+        self.velocity.length_squared() / 2.0
+    }
+
+    fn potential_energy(&self) -> f32 {
+        (sdl::WINDOW_HEIGHT as f32 - self.pos.y) * GRAVITY.y
+    }
+
+    fn total_energy(&self) -> f32 {
+        self.kinetic_energy() + self.potential_energy()
     }
 }
 
@@ -157,13 +177,12 @@ impl Poggle {
         ))
         .collect();
 
+        let amount = 100;
+        let space = 11.0;
         let center = sdl::WINDOW_WIDTH as f32 / 2.0;
-        let balls = (-100..100)
-            .map(|i| Ball {
-                pos: Point::new(center + i as f32 / 200.0 - 15.0, 300.0),
-                velocity: Point::zero(),
-            })
-            .collect();
+        let positions = (-amount..amount + 1)
+            .map(|i| Point::new(center + i as f32 / amount as f32 * space - 15.0, 300.0));
+        let balls = positions.map(|pos| Ball::new(pos, Point::zero())).collect();
 
         // let pegs = vec![Peg {
         //     body: Body {
@@ -177,11 +196,7 @@ impl Poggle {
         //     peg_type: PegType::Standard,
         // }];
 
-        Self {
-            balls,
-            pegs,
-            target: None,
-        }
+        Self { balls, pegs }
     }
 
     fn generate_grid(origin: Point<f32>, end: Point<f32>, spacing: f32) -> Vec<Peg> {
@@ -207,10 +222,7 @@ impl Poggle {
     }
 
     pub fn shoot(&mut self, origin: Point<f32>, velocity: Point<f32>) {
-        self.balls.push(Ball {
-            pos: origin,
-            velocity,
-        });
+        self.balls.push(Ball::new(origin, velocity));
     }
 
     pub fn update(&mut self, delta: Duration) {
@@ -294,7 +306,19 @@ impl Render for Ball {
     where
         T: sdl2::render::RenderTarget,
     {
-        canvas.set_draw_color(Color::RED);
+        let start = Ball::new(self.start, Point::zero());
+        if self.total_energy() > start.total_energy() {
+            println!(
+                "Ball starting at {:.2} has an energy of {:.2} (started at {:.2})",
+                self.start,
+                self.total_energy(),
+                start.total_energy()
+            );
+            canvas.set_draw_color(Color::GREEN);
+        } else {
+            canvas.set_draw_color(Color::RED);
+        }
+
         draw_circle_filled(
             canvas,
             self.pos.x as u32,

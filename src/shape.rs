@@ -4,12 +4,22 @@ use std::{
 };
 
 pub trait Number:
-    Copy + Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Div<Output = Self>
+    Copy
+    + Add<Output = Self>
+    + Sub<Output = Self>
+    + Mul<Output = Self>
+    + Div<Output = Self>
+    + PartialOrd
 {
 }
 
 impl<T> Number for T where
-    T: Copy + Add<Output = Self> + Sub<Output = Self> + Mul<Output = Self> + Div<Output = Self>
+    T: Copy
+        + Add<Output = Self>
+        + Sub<Output = Self>
+        + Mul<Output = Self>
+        + Div<Output = Self>
+        + PartialOrd
 {
 }
 
@@ -55,7 +65,11 @@ impl<T: Number> Point<T> {
     }
 
     pub fn distance_to_squared(self, rhs: Self) -> T {
-        (self - rhs).length_squared()
+        self.to(rhs).length_squared()
+    }
+
+    pub fn is_longer_than(self, rhs: T) -> bool {
+        self.length_squared() > rhs * rhs
     }
 }
 

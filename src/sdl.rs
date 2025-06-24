@@ -16,8 +16,8 @@ use crate::{poggle::Poggle, shape::Point};
 pub const WINDOW_WIDTH: u32 = 1280;
 pub const WINDOW_HEIGHT: u32 = 800;
 
-pub const UPDATES_PER_SECOND: u16 = 60;
-const FRAMES_PER_SECOND: u16 = 60;
+pub const UPDATES_PER_SECOND: u16 = 165;
+const FRAMES_PER_SECOND: u16 = 165;
 
 pub trait Render {
     fn render<T>(&self, canvas: &mut Canvas<T>) -> Result<(), String>
@@ -62,7 +62,6 @@ pub fn run(poggle: &mut Poggle) {
 
     let mut next_update = Instant::now();
     let update_delta = Duration::from_secs(1) / UPDATES_PER_SECOND as u32;
-    let mut last_update = Instant::now() - update_delta;
 
     let mut next_render = Instant::now();
     let render_delta = Duration::from_secs(1) / FRAMES_PER_SECOND as u32;
@@ -70,7 +69,10 @@ pub fn run(poggle: &mut Poggle) {
     let mut target_end = None;
 
     let mut is_running = true;
+    let mut is_suspended = false;
+    let mut should_step = false;
     let mut mouse_down = false;
+
     while is_running {
         for event in events.poll_iter() {
             match event {
@@ -79,6 +81,18 @@ pub fn run(poggle: &mut Poggle) {
                     keycode: Some(Keycode::ESCAPE),
                     ..
                 } => is_running = false,
+                Event::KeyDown {
+                    keycode: Some(Keycode::P),
+                    ..
+                } => is_suspended = !is_suspended,
+                Event::KeyDown {
+                    keycode: Some(Keycode::O),
+                    ..
+                } => {
+                    if is_suspended {
+                        should_step = true;
+                    }
+                }
                 Event::MouseButtonDown {
                     mouse_btn: MouseButton::Left,
                     x,
@@ -121,10 +135,17 @@ pub fn run(poggle: &mut Poggle) {
             }
         }
 
+        if is_suspended && !should_step {
+            thread::sleep(Duration::from_micros(10));
+            continue;
+        }
+
+        should_step = false;
+
         let now = Instant::now();
 
         if now >= next_render {
-            next_render += render_delta;
+            next_render = (next_render + render_delta).max(now);
             canvas.set_draw_color(Color::GRAY);
             canvas.clear();
             poggle.render(&mut canvas).expect("rendering driver failed");
@@ -139,8 +160,7 @@ pub fn run(poggle: &mut Poggle) {
 
         if now >= next_update {
             poggle.update(update_delta);
-            next_update += update_delta;
-            last_update += update_delta;
+            next_update = (next_update + update_delta).max(now);
         }
 
         thread::sleep(Duration::from_micros(10));
