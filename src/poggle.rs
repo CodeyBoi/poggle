@@ -103,7 +103,7 @@ impl Ball {
                         y2
                     };
 
-                    if movement.is_longer_than(1.0)
+                    if movement.is_longer_than(165.0 * time.as_secs_f32())
                         && self.velocity.y.signum() != (y_new - self.pos.y).signum()
                     {
                         return None;
@@ -127,7 +127,7 @@ impl Ball {
                 };
 
                 // Check the direction is correct
-                if movement.is_longer_than(1.0)
+                if movement.is_longer_than(165.0 * time.as_secs_f32())
                     && movement.x.signum() != (x_new - self.pos.x).signum()
                 {
                     return None;
@@ -177,11 +177,11 @@ impl Poggle {
         ))
         .collect();
 
-        let amount = 100;
+        let amount = 200;
         let space = 11.0;
         let center = sdl::WINDOW_WIDTH as f32 / 2.0;
         let positions = (-amount..amount + 1)
-            .map(|i| Point::new(center + i as f32 / amount as f32 * space - 15.0, 300.0));
+            .map(|i| Point::new(center + i as f32 / amount as f32 * space - 15.0, 100.0));
         let balls = positions.map(|pos| Ball::new(pos, Point::zero())).collect();
 
         // let pegs = vec![Peg {
@@ -245,6 +245,7 @@ impl Poggle {
                         + ball.velocity.normalized()
                             * (distance_to_travel - ball.pos.distance_to(collision));
                     peg.is_hit = true;
+                    break;
                 }
             }
 
