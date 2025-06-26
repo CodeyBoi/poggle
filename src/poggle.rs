@@ -1,4 +1,4 @@
-use std::time::Duration;
+use std::{f32::consts, time::Duration};
 
 use sdl2::pixels::Color;
 
@@ -12,6 +12,7 @@ const GRAVITY: Point<f32> = Point::new(0.0, 550.0);
 pub struct Poggle {
     balls: Vec<Ball>,
     pegs: Vec<Peg>,
+    tick: u64,
 }
 
 pub struct Target {
@@ -88,7 +89,7 @@ impl Ball {
                 let q = other.pos.y;
                 let r = radius + Ball::RADIUS;
 
-                if movement.x.abs() < f32::EPSILON {
+                if movement.x.abs() < 1.0 {
                     // In this case we have x = t which gives us
                     // y^2 - 2qy + (p^2 + q^2 - r^2 - 2dp + d^2)
                     let d = self.pos.x;
@@ -137,7 +138,7 @@ impl Ball {
                 let collision = Point::new(x_new, m * x_new + k);
 
                 // Check if collision will happen during the allotted time
-                if self.pos.distance_to_squared(collision) > movement.length_squared() {
+                if self.pos.distance_to_squared(collision) * 0.99 > movement.length_squared() {
                     return None;
                 }
 
@@ -147,16 +148,12 @@ impl Ball {
         }
     }
 
-    fn kinetic_energy(&self) -> f32 {
-        self.velocity.length_squared() / 2.0
-    }
-
     fn potential_energy(&self) -> f32 {
         (sdl::WINDOW_HEIGHT as f32 - self.pos.y) * GRAVITY.y
     }
 
     fn total_energy(&self) -> f32 {
-        self.kinetic_energy() + self.potential_energy()
+        self.velocity.kinetic_energy() + self.potential_energy()
     }
 }
 
@@ -196,7 +193,11 @@ impl Poggle {
         //     peg_type: PegType::Standard,
         // }];
 
-        Self { balls, pegs }
+        Self {
+            balls,
+            pegs,
+            tick: 0,
+        }
     }
 
     fn generate_grid(origin: Point<f32>, end: Point<f32>, spacing: f32) -> Vec<Peg> {
@@ -236,15 +237,40 @@ impl Poggle {
             ball.pos += ball.velocity * d;
 
             for peg in &mut self.pegs {
+                if peg.body.extend(Ball::RADIUS).contains(ball.pos) {
+                    ball.pos = match &peg.body.shape {
+                        Shape::Circle { radius } => {
+                            peg.body.pos
+                                + peg
+                                    .body
+                                    .pos
+                                    .to(ball.pos)
+                                    .with_length(*radius + Ball::RADIUS)
+                        }
+                        Shape::Polygon { points, rotation } => todo!(),
+                    };
+                }
                 if let Some(collision) = ball.will_collide(&peg.body, delta) {
+                    let start_velocity = ball.velocity;
+
                     let distance_to_travel = ball.velocity.length() * delta.as_secs_f32();
                     let reflect = peg.body.pos.to(collision).normalized();
+
+                    // this is not entirely correct
                     ball.velocity += reflect * reflect.dot(ball.velocity).abs() * 2.0;
-                    ball.velocity *= Ball::ELASTICITY;
+                    ball.velocity = ball
+                        .velocity
+                        .with_length(start_velocity.length() * Ball::ELASTICITY);
+
                     ball.pos = collision
                         + ball.velocity.normalized()
                             * (distance_to_travel - ball.pos.distance_to(collision));
                     peg.is_hit = true;
+
+                    // if ball.velocity.length_squared() > start_velocity.length_squared() {
+                    //     println!("Tick {}: ball got {:.0}% speed when bouncing off peg at {} (angle {:.2}, {:.2} -> {:.2}, EK {:.0} -> {:.0})",self.tick, ball.velocity.length() / start_velocity.length() * 100.0, peg.body.pos, std::convert::Into::<PolarPoint>::into(peg.body.pos.to(ball.pos)).angle * 180.0 / consts::PI, start_velocity, ball.velocity, start_velocity.kinetic_energy(), ball.velocity.kinetic_energy());
+                    // }
+
                     break;
                 }
             }
@@ -255,6 +281,12 @@ impl Poggle {
                 ball.velocity.x *= -1.0;
             }
 
+            // for peg in &self.pegs {
+            //     if peg.body.extend(Ball::RADIUS).contains(ball.pos) {
+            //         println!("Ball is inside peg at {}", peg.body.pos);
+            //     }
+            // }
+
             true
         });
 
@@ -263,6 +295,8 @@ impl Poggle {
                 peg.is_hit = false;
             }
         }
+
+        self.tick += 1;
     }
 }
 
@@ -271,12 +305,12 @@ impl Render for Poggle {
     where
         T: sdl2::render::RenderTarget,
     {
-        for peg in &self.pegs {
-            peg.render(canvas)?;
-        }
-
         for ball in &self.balls {
             ball.render(canvas)?;
+        }
+
+        for peg in &self.pegs {
+            peg.render(canvas)?;
         }
 
         // canvas.set_draw_color(Color::GREEN);
@@ -309,12 +343,12 @@ impl Render for Ball {
     {
         let start = Ball::new(self.start, Point::zero());
         if self.total_energy() > start.total_energy() {
-            println!(
-                "Ball starting at {:.2} has an energy of {:.2} (started at {:.2})",
-                self.start,
-                self.total_energy(),
-                start.total_energy()
-            );
+            // println!(
+            //     "Ball starting at {} has an energy of {:.2} (started at {:.2})",
+            //     self.start,
+            //     self.total_energy(),
+            //     start.total_energy()
+            // );
             canvas.set_draw_color(Color::GREEN);
         } else {
             canvas.set_draw_color(Color::RED);
@@ -380,6 +414,13 @@ impl Render for Peg {
                     self.body.pos.y as u32,
                     *radius as u32,
                 )?;
+                // canvas.set_draw_color(Color::GREEN);
+                // draw_circle(
+                //     canvas,
+                //     self.body.pos.x as u32,
+                //     self.body.pos.y as u32,
+                //     *radius as u32 + Ball::RADIUS as u32,
+                // )?;
             }
             Shape::Polygon { points, rotation } => todo!(),
         }

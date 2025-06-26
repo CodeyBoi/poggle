@@ -93,6 +93,12 @@ pub fn run(poggle: &mut Poggle) {
                         should_step = true;
                     }
                 }
+                Event::KeyDown {
+                    keycode: Some(Keycode::R),
+                    ..
+                } => {
+                    *poggle = Poggle::new();
+                }
                 Event::MouseButtonDown {
                     mouse_btn: MouseButton::Left,
                     x,

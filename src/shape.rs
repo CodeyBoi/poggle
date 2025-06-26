@@ -85,6 +85,10 @@ impl<T: Number + Into<f32>> Point<T> {
     pub fn normalized(self) -> Point<f32> {
         Point::new(self.x.into(), self.y.into()) / self.length()
     }
+
+    pub fn with_length(self, rhs: f32) -> Point<f32> {
+        self.normalized() * rhs
+    }
 }
 
 impl PolarPoint {
@@ -99,6 +103,10 @@ impl<T: Number + From<u8>> Point<T> {
             x: 0u8.into(),
             y: 0u8.into(),
         }
+    }
+
+    pub fn kinetic_energy(self) -> T {
+        self.length_squared() / 2u8.into()
     }
 }
 
@@ -196,6 +204,21 @@ pub enum Shape {
 pub struct Body {
     pub pos: Point<f32>,
     pub shape: Shape,
+}
+
+impl Body {
+    pub fn extend(&self, distance: f32) -> Self {
+        let shape = match &self.shape {
+            Shape::Circle { radius } => Shape::Circle {
+                radius: radius + distance,
+            },
+            Shape::Polygon { points, rotation } => todo!(),
+        };
+        Self {
+            pos: self.pos,
+            shape,
+        }
+    }
 }
 
 pub trait Region {
